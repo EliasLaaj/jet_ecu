@@ -27,9 +27,10 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(sensor), ISR_sensor, RISING);
   Wire.begin(slaveAddress); // Initialize I2C communication with a specific address
   Wire.onRequest(requestEvent); // Register the requestEvent function
+  Serial.begin(9600);
   pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);
- 
+  Serial.print("Setup complited");
 }
 
 void requestEvent() {
@@ -47,9 +48,10 @@ void loop() {
    if(((micros() - t_pulse_started) > 2000000) && timeout == 0 && newpulse == 0) {
            
      timeout = 1;
-     digitalWrite(13, HIGH);
+     digitalWrite(13, LOW);
      rpm_average = 0;
      n = 0;
+     Serial.print(rpm_average);
 
    };
    
@@ -70,7 +72,8 @@ void loop() {
      
          };
          
-         rpm_average = rpm_sum / (n_max + 1);     
+         rpm_average = rpm_sum / (n_max + 1);
+         Serial.print(rpm_average);     
          rpm_sum = 0;
          n = 0;
          
@@ -88,7 +91,7 @@ void ISR_sensor() {
   t_pulse_duration_volatile = micros() - t_pulse_started_volatile;
   t_pulse_started_volatile = micros();
   timeout = 0;
-  digitalWrite(13, LOW);
+  digitalWrite(13, HIGH);
   newpulse = 1;
 
  
