@@ -22,6 +22,7 @@ byte n_max = 0;
 byte n = 0;
 
 volatile bool timeout = 1;
+analogWrite(13, High);
 volatile bool newpulse = 0;
 
 void setup() {
@@ -48,6 +49,7 @@ void loop() {
    if(((micros() - t_pulse_started) > 2000000) && timeout == 0 && newpulse == 0) {
            
      timeout = 1;
+     analogWrite(13, High);
      rpm_average = 0;
      n = 0;
 
@@ -88,6 +90,8 @@ void ISR_sensor() {
   t_pulse_duration_volatile = micros() - t_pulse_started_volatile;
   t_pulse_started_volatile = micros();
   timeout = 0;
+  analogWrite(13, Low);
   newpulse = 1;
+
  
 }
