@@ -8,6 +8,7 @@
 
 
 const byte sensor = 2;
+const int slaveAddress = 9; // I2C address of the slave Arduino
 
 volatile unsigned long t_pulse_started_volatile = 0;
 volatile unsigned long t_pulse_duration_volatile = 0;
@@ -27,7 +28,14 @@ void setup() {
   
   pinMode(sensor, INPUT);
   attachInterrupt(digitalPinToInterrupt(sensor), ISR_sensor, RISING);
+  Wire.begin(slaveAddress); // Initialize I2C communication with a specific address
+  Wire.onRequest(requestEvent); // Register the requestEvent function
  
+}
+
+void requestEvent() {
+  // Send the long integer as 8 bytes when requested by the master
+  Wire.write((uint8_t*)&rpm_average, sizeof(rpm_average));
 }
 
 void loop() { 
@@ -72,44 +80,8 @@ void loop() {
    
    }
 
-updatedisplay();
-  
 }
 
-void updatedisplay() {
-  
-  byte x = 0;
-  
-  display.clearDisplay();
-  display.setTextSize(3);
-  
-  if(rpm_average < 10) x = 80;
-  if(rpm_average >= 10 && rpm_average < 100) x = 62;
-  if(rpm_average >= 100 && rpm_average < 1000) x = 44;
-  if(rpm_average >= 1000 && rpm_average < 10000) x = 26;
-  if(rpm_average >= 10000 && rpm_average < 100000) x = 8;
-  
-  display.setTextColor(SSD1306_WHITE);
-  
-  if(rpm_average < 100000){
-    
-    display.setCursor(x, 6); 
-    display.print(rpm_average);
-    display.setTextSize(1);
-    display.setCursor(104, 20);
-    display.print(F("RPM"));
-    display.display();
-  
-  } else {
-      
-      display.setTextSize(2);
-      display.setCursor(13, 8); 
-      display.print(F("MAX LIMIT"));
-      display.display();
-    
-    }
-  
-}
 
 void ISR_sensor() {
  

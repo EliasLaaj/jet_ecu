@@ -3,7 +3,9 @@
 #include <max6675.h>
 #include <RpmSensor.h>
 #include <ESP32Servo.h>
-
+#include <Wire.h>
+#include <analogWrite.h>
+#include <Arduino.h>
 
 #define IGN_PIN 5 // Replace with your GPIO pin number
 #define FUEL_PWM 6 
@@ -24,6 +26,8 @@ const int IDLE = 25; // Lowest fuel pump percentage when running
 const int thermoDO = 2; // Digital pin connected to MAX6675 SO
 const int thermoCS = 3; // Digital pin connected to MAX6675 CS
 const int thermoCLK = 4; // Digital pin connected to MAX6675 SCK
+
+const int RpmSlaveAdress = 9;
 
 int EGT_READ() {
   float celsius = thermocouple.readCelsius();
@@ -61,12 +65,14 @@ bool STARTER_READ() {
     else(){
       return false;
     }
+  }
   else(){
     return false;
-  }
+    }
 }
 
-void moveServo(Servo &servo, int percent){
+
+void moveServo(Servo &servo, int percent) {
   // Map the percentage value to the servo angle (0 to 180 degrees)
   int angle = map(percent, 0, 100, 0, 180);
 
@@ -74,12 +80,25 @@ void moveServo(Servo &servo, int percent){
   servo.write(angle);
 }
 
+long RequestRpm(int RpmSlaveAddress) {
+  long receivedData = 0;
+  Wire.requestFrom(RpmSlaveAddress, sizeof(receivedData));
+  
+  while(Wire.available() < sizeof(receivedData)) {
+    // Wait for the data to be available
+  }
+  
+  Wire.readBytes((uint8_t*)&receivedData, sizeof(receivedData));
+  return receivedData;
+}
+
+
 void SHUTDOWN(){
   moveServo(servo1, 0); //Turn off fuel pump if not ignited
-  analogWrite(N1_SELECT, LOW); // Turn off generator and connect starter
+  digitalWrite(N1_SELECT, LOW); // Turn off generator and connect starter
   delay(200);
   moveServo(servo2, 20); // Slow down starter to cool down and went
-  analogWrite(IGN_PIN, LOW); // Turn off ignition
+  digitalWrite(IGN_PIN, LOW); // Turn off ignition
   analogWrite(OIL_PWM, 128); // 128 corresponds to 50% duty cycle of 255. Oilpump to 50%
   delay(10000);
   moveServo(servo2, 0); // Turn starter off
@@ -96,11 +115,10 @@ void START_ENGINE(){
   delay(3000);
   moveServo(servo2, 70);
   delay(3000)
-  rpmSensor.update();
-  if(pmSensor.getRpmAverage() > 8000) {
+  if(RequestRpm(RpmSlaveAdress) > 8000) {
     moveServo(servo2, 100);
     analogWrite(OIL_PWM, 185);
-    analogWrite(IGN_PIN, HIGH); // Turn on ignition
+    digitalWrite(IGN_PIN, HIGH); // Turn on ignition
     dealy(500);
     moveServo(servo1, 15); //Turn on fuel pump at 15%
     delay(2000);
@@ -110,9 +128,8 @@ void START_ENGINE(){
     if(EGT_READ() <= 100){
       delay(2000)
       moveServo(servo1, 25); //Turn on fuel pump at 25%
-      analogWrite(IGN_PIN, LOW); // Turn off ignition
-      rpmSensor.update();
-      while(rpmSensor.getRpmAverage() > 32000){
+      digitalWrite(IGN_PIN, LOW); // Turn off ignition
+      while(RequestRpm(RpmSlaveAdress) > 32000){
         if(n > 9){
           SHUTDOWN();
         }
@@ -120,13 +137,12 @@ void START_ENGINE(){
           SHUTDOWN();
         }
         delay(500)
-        rpmSensor.update();
         n++
       }
       moveServo(servo2, 0); // Turn starter off
       moveServo(servo1, 30); //Set fuel pump at 30%
       delay[2000]
-      analogWrite(N1_SELECT, HIGH); // Turn off starter and connect generator
+      digitalWrite(N1_SELECT, HIGH); // Turn off starter and connect generator
     }
   else(){
     SHUTDOWN();
@@ -135,25 +151,24 @@ void START_ENGINE(){
 }
 
 void OIL_CONTROL(){
-  rpmSensor.update();
-  long rpm = rpmSensor.getRpmAverage();
+  long rpm = RequestRpm(RpmSlaveAdress);
   if(EGT_READ() > 250){
     if(rpm < 3000){
       analogWrite(OIL_PWM, 0); //Turn off oil pump
     }
     else(){
-      analogWrite(OIL_PWM, 40); //Set 40% pwm on oil pump
+      analogWrite(OIL_PWM, 102); //Set 40% pwm on oil pump
     }
   }
   else(){
     if rpm < 50000;{
-      analogWrite(OIL_PWM, 70); //Set 60% pwm on oil pump
+      analogWrite(OIL_PWM, 153); //Set 60% pwm on oil pump
     }
     if(rpm >= 50000){
-      analogWrite(OIL_PWM, 90); //Set 90% pwm on oil pump
+      analogWrite(OIL_PWM, 230); //Set 90% pwm on oil pump
     }
     else(){
-      analogWrite(OIL_PWM, 60); //Set 60% pwm on oil pump
+      analogWrite(OIL_PWM, 153); //Set 60% pwm on oil pump
     }
   }
 
@@ -168,6 +183,7 @@ void setup(){
   rpmSensor.begin();//Starts rpm meter library
   servo1.attach(FUEL_PWM);  // Fuelpump pin
   servo2.attach(STARTER_PWM); // Starter motor pwm
+  Wire.begin();
   Serial.begin(9600);
   Serial.println("Setup done.");
   Serial.println();
@@ -188,9 +204,10 @@ void loop(){
   OIL_CONTROL();
 
   //RPM SENS
-  rpmSensor.update();
-  long rpm = rpmSensor.getRpmAverage();
+  long rpm = RequestRpm(RpmSlaveAdress);
 
   //EGT READ
   int egt = EGT_READ();
 }
+
+///////
