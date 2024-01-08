@@ -3,9 +3,6 @@
 
 #include <SPI.h>
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-
 
 const byte sensor = 2;
 const int slaveAddress = 9; // I2C address of the slave Arduino
